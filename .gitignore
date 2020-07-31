@@ -1,0 +1,9 @@
+# Ivan Bystrov
+# 31 July 2020
+#
+# Ignore all these files in git
+
+blur
+imgs/
+objs/*
+!objs/.gitkeep

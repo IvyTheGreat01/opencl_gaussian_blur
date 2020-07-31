@@ -1,14 +1,14 @@
 // Ivan Bystrov
 // 26 July 2020
 //
-// All the code that actually performs the blur on the input image
+// All the code that actually performs the blur on the input image if using cpu
 
 
 #include <stdlib.h>
 #include <math.h>
 #include <time.h>
 #include <pthread.h>
-#include "hdrs/blur_png.h"
+#include "hdrs/blur_cpu.h"
 #include "hdrs/blur_helpers.h"
 #include "hdrs/error.h"
 
@@ -116,14 +116,19 @@ void *multithreaded_blur(void *thread_params) {
 	unsigned offset = tp->offset;
 	unsigned pass = tp->pass;
 
+	unsigned counter = 0;
+	
 	// Loop over every pixel this thread is allowed, and apply correct blur to it depending on the pass
 	if (last_row > img_datap->height) { last_row = img_datap->height; }
 	for (unsigned row = start_row; row < last_row; ++row) {
 		for (unsigned col = 0; col < img_datap->width; ++col) {
 			blur_pixel(img_datap, row, col, gaussian_kernel, gaussian_kernel_len, offset, pass);
+			counter ++;
 		}
 	}
 
+	// fprintf(stderr, "sr: %u, lr: %u, pxls: %u\n", start_row, last_row, counter);
+	
 	return NULL;
 }
 
@@ -140,9 +145,10 @@ void blur_cpu(struct Img_Data *img_datap, unsigned std_dev, unsigned num_threads
 	calculate_kernel(&gaussian_kernel, gaussian_kernel_len, std_dev);
 	print_kernel(gaussian_kernel, gaussian_kernel_len);
 		
-	// Declare the desired number of threads and the number of rows they operate on
+	// Declare the desired number of threads (and their params) and the number of rows they operate on
 	pthread_t threads[num_threads];
-	unsigned num_rows_per_thread = ceil(img_datap->height / num_threads);
+	struct Thread_Params tps[num_threads];
+	unsigned num_rows_per_thread = ceil( (double) img_datap->height / num_threads);
 
 	// Start timing the duration of the blur
 	printf("Blurring...\n");
@@ -154,18 +160,17 @@ void blur_cpu(struct Img_Data *img_datap, unsigned std_dev, unsigned num_threads
 	for (unsigned pass = 1; pass < 3; ++pass) {
 		// Create all the threads for the current pass
 		for (unsigned thread = 0; thread < num_threads; ++thread) {
-			// Create and set all the values of the Thread_Param struct
-			struct Thread_Params tp;
-			tp.img_datap = img_datap;
-			tp.gaussian_kernel = gaussian_kernel;
-			tp.gaussian_kernel_len = gaussian_kernel_len;
-			tp.offset = RADIUS * std_dev;
-			tp.start_row = thread * num_rows_per_thread;
-	       		tp.last_row = (thread + 1) * num_rows_per_thread;
-			tp.pass = pass;
+			// Set all the values of the correct Thread_Params struct
+			tps[thread].img_datap = img_datap;
+			tps[thread].gaussian_kernel = gaussian_kernel;
+			tps[thread].gaussian_kernel_len = gaussian_kernel_len;
+			tps[thread].offset = RADIUS * std_dev;
+			tps[thread].start_row = thread * num_rows_per_thread;
+	       		tps[thread].last_row = (thread + 1) * num_rows_per_thread;
+			tps[thread].pass = pass;
 
 			// Create the thread
-			pthread_create(&threads[thread], NULL, multithreaded_blur, &tp);
+			pthread_create(&threads[thread], NULL, multithreaded_blur, &tps[thread]);
 		}
 
 		// Join up all the threads after their current pass

@@ -10,7 +10,7 @@
 #include <ctype.h>
 #include <stdbool.h>
 #include "hdrs/process_png.h"
-#include "hdrs/blur_png.h"
+#include "hdrs/blur_cpu.h"
 #include "hdrs/error.h"
 
 #define OUTPUT_MODIFIER "_blrd"

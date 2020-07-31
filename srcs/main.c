@@ -9,9 +9,9 @@
 #include <string.h>
 #include <ctype.h>
 #include <stdbool.h>
-#include "hdrs/process_png.h"
-#include "hdrs/blur_cpu.h"
-#include "hdrs/error.h"
+#include "process_png.h"
+#include "blur_cpu.h"
+#include "error.h"
 
 #define OUTPUT_MODIFIER "_blrd"
 #define OUTPUT_MODIFIER_LEN 5

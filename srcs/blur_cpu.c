@@ -8,9 +8,9 @@
 #include <math.h>
 #include <time.h>
 #include <pthread.h>
-#include "hdrs/blur_cpu.h"
-#include "hdrs/blur_helpers.h"
-#include "hdrs/error.h"
+#include "blur_cpu.h"
+#include "blur_helpers.h"
+#include "error.h"
 
 
 /** Struct storing all the information threads will need to perform blur

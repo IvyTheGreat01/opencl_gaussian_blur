@@ -5,7 +5,7 @@
 
 #include <stdio.h>
 #include <math.h>
-#include "hdrs/blur_helpers.h"
+#include "blur_helpers.h"
 
 #define RADIUS 3
 

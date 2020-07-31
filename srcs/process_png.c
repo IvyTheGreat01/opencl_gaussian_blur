@@ -7,8 +7,8 @@
 #include <stdlib.h>
 #include <errno.h>
 #include <stdbool.h>
-#include "hdrs/process_png.h"
-#include "hdrs/error.h"
+#include "process_png.h"
+#include "error.h"
 
 
 /**

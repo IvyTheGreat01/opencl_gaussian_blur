@@ -11,6 +11,7 @@
 #include <stdbool.h>
 #include "process_png.h"
 #include "blur_cpu.h"
+#include "blur_gpu.h"
 #include "error.h"
 
 #define OUTPUT_MODIFIER "_blrd"
@@ -198,6 +199,9 @@ int main(int argc, char **argv) {
 	// Call correct blur function depending on device
 	if (input_parameters.device == 'c') {
 		blur_cpu(&img_data, input_parameters.std_dev, input_parameters.config);
+	
+	} else {
+		blur_gpu(&img_data, input_parameters.std_dev, input_parameters.config);
 	}
 
 	// Write the blurred image to the output file

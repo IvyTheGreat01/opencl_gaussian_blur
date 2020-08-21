@@ -11,15 +11,15 @@ HDRDIR = hdrs
 OBJ = $(OBJDIR)/main.o $(OBJDIR)/process_png.o $(OBJDIR)/blur_cpu.o $(OBJDIR)/error.o $(OBJDIR)/blur_helpers.o $(OBJDIR)/blur_gpu.o
 OUTPUT = blur
 
-ROCM = /opt/rocm/opencl/lib
-ROCM_INCL = -I$(ROCM)/include
-ROCM_LINK = -L$(ROCM)/lib
+ROCM = /opt/rocm/opencl
+ROCM_INC = $(ROCM)/include
+ROCM_LINK = $(ROCM)/lib
 
 $(OUTPUT): $(OBJ)
-	$(CC) $(OBJ) -o $(OUTPUT) $(CFLAGS) -lOpenCL -L $(ROCM)
+	$(CC) $(OBJ) -o $(OUTPUT) $(CFLAGS) -lOpenCL -L $(ROCM_LINK)
 
 $(OBJDIR)/%.o: $(SRCDIR)/%.c
-	$(CC) -c $< -o $@ $(CFLAGS) -I $(HDRDIR)
+	$(CC) -c $< -o $@ $(CFLAGS) -I $(HDRDIR) -I $(ROCM_INC)
 
 .PHONY: clean
 clean:

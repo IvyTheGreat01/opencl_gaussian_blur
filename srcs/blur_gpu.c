@@ -6,6 +6,12 @@
 // Define opencl version 1.2
 #define CL_TARGET_OPENCL_VERSION 120
 
+// Name of the .cl file to build program with
+#define CL_FILE "srcs/blur_kernel.cl"
+
+// Template for options string to be passed when building OpenCL program for OpenCL version 1.2
+#define CL_OPTIONS "-cl-std=CL1.2 -D GAUSSIAN_KERNEL_LEN=%u -D OFFSET=%u -D IMG_WIDTH=%u -D IMG_HEIGHT=%u"
+
 #include <stdlib.h>
 #include <math.h>
 #include <time.h>
@@ -46,12 +52,12 @@ unsigned print_platform_and_device_info(cl_platform_id platform, cl_device_id de
  * Performs blur on the input image and stores it in the new image space
  * @param img_datap : struct storing all the info of the input image
  * @param std_dev : desired standard deviation of the gaussian_blur
- * @param blur_type : 1 for discrete blur, 2 for bilinear blur
  */
-void blur_gpu(struct Img_Data *img_datap, unsigned std_dev, unsigned blur_type) {
+void blur_gpu(struct Img_Data *img_datap, unsigned std_dev) {
 	// Create the 1D Gaussian convolution kernel and output it
-	cl_ushort gaussian_kernel_len = std_dev * RADIUS * 2 + 1;
-	cl_double *gaussian_kernel = malloc(sizeof(double) * gaussian_kernel_len);
+	cl_uint gaussian_kernel_len = std_dev * RADIUS * 2 + 1;
+	cl_uint offset = std_dev * RADIUS;
+	cl_float *gaussian_kernel = malloc(sizeof(float) * gaussian_kernel_len);
 	calculate_kernel(&gaussian_kernel, gaussian_kernel_len, std_dev);
 	print_kernel(gaussian_kernel, gaussian_kernel_len);
 	
@@ -77,23 +83,98 @@ void blur_gpu(struct Img_Data *img_datap, unsigned std_dev, unsigned blur_type) 
 	cl_context context = clCreateContext(NULL, 1, &device, NULL, NULL, &err);
 	if (err) { error("could not create OpenCL context\n"); }
 	
-	cl_uint float_width;
-	clGetDeviceInfo(device, CL_DEVICE_PREFERRED_VECTOR_WIDTH_FLOAT, sizeof(float_width), &float_width, NULL);
-	printf("Float Width Preferred: %d\n", float_width);
-
-
-	// Create the program
-		// Read in .cl file(s)
-		// cl_program program = clCreateProgramWithSource(context, ...);
-		// clBuildProgram(program, ...);
+	// Determine size of kernel source file
+	FILE *fp;
+	if (!(fp = fopen(CL_FILE, "r"))) { error(NULL); }
+	if (fseek(fp, 0, SEEK_END)) { error("could not seek in " CL_FILE "\n"); }
+	long int src_size = ftell(fp);
+	rewind(fp);
 	
+	// Read kernel source file into buffer
+	char *buf = malloc(sizeof(char) * src_size + 1);
+	if (fread(buf, sizeof(char), src_size, fp) != (long unsigned) src_size) { error("could not read " CL_FILE "\n"); }	
+	buf[src_size] ='\0';
+	if (fclose(fp)) { error("could not close " CL_FILE "\n"); }
+		
+	// Create the program
+	cl_program program = clCreateProgramWithSource(context, 1, (const char **) &buf, 0, &err);
+	if (err != CL_SUCCESS) { error("could not create OpenCL program\n"); }
+	
+	// Calculate the number of characters to represent each MACRO to be sent to the kernels
+	unsigned size_gaussian_kernel_len = snprintf(NULL, 0, "%u", gaussian_kernel_len);
+	unsigned size_offset = snprintf(NULL, 0, "%u", offset);
+	unsigned size_img_height = snprintf(NULL, 0, "%u", img_datap->height);
+	unsigned size_img_width = snprintf(NULL, 0, "%u", img_datap->width);
 
-	// Release the context before exiting function
+	// Create options string for building program
+	char options[size_gaussian_kernel_len + size_offset + size_img_width + size_img_height + sizeof(CL_OPTIONS) - 4*2];
+	snprintf(options, sizeof(options), CL_OPTIONS, gaussian_kernel_len, offset, img_datap->width, img_datap->height);
+	
+	// Build the program and output log if it failed
+	err = clBuildProgram(program, 1, &device, options, NULL, NULL);
+	char *program_log;
+	if (err != 0) {
+		size_t log_size;
+		clGetProgramBuildInfo(program, device, CL_PROGRAM_BUILD_LOG, 0, NULL, &log_size);
+		program_log = malloc(sizeof(char) * (log_size + 1));
+		clGetProgramBuildInfo(program, device, CL_PROGRAM_BUILD_LOG, log_size + 1, program_log, NULL);
+		printf("%s\n\n", program_log);
+		error("could not build OpenCL program\n");
+	}
+
+	// Create the command queue to the gpu
+	cl_command_queue command_queue = clCreateCommandQueue(context, device, CL_QUEUE_PROFILING_ENABLE, &err);
+	if (err != CL_SUCCESS) { error("could not create OpenCL command queue on the gpu\n"); }
+
+	// Create the kernel for the first pass of the blur
+	const char first_pass_kernel_name[] = "first_pass_blur";
+	cl_kernel first_pass_kernel = clCreateKernel(program, first_pass_kernel_name, &err);
+	if (err != CL_SUCCESS) { error("could not create OpenCL kernel for the first pass of the blur\n"); }
+
+	// Initialize image format struct
+	cl_image_format *format = malloc(sizeof(cl_image_format));
+       	format->image_channel_order = CL_RGBA;
+	format->image_channel_data_type = CL_UNSIGNED_INT8;
+
+	// Initialize image descriptor struct
+	cl_image_desc *desc = malloc(sizeof(cl_image_desc));
+	desc->image_type = CL_MEM_OBJECT_IMAGE2D;
+	desc->image_width = img_datap->width;
+	desc->image_height = img_datap->height;
+	desc->image_depth = 0;
+	desc->image_array_size = 0;
+	desc->image_row_pitch = 0;
+	desc->image_slice_pitch = 0;
+	desc->num_mip_levels = 0;
+	desc->num_samples = 0;
+
+	// Create the input and output images
+	cl_mem input_img = clCreateImage(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, (const cl_image_format *) format, (const cl_image_desc *) desc, img_datap->row_pointers, &err);
+	if (err) { error("could not create input image for first pass of the blur\n"); }
+	cl_mem output_img = clCreateImage(context, CL_MEM_WRITE_ONLY, (const cl_image_format *) format, (const cl_image_desc *) desc, NULL, &err);
+	if (err) { error("could not create output image for first pass of the blur\n"); }
+
+	// Create the gaussian kernel memory object
+	cl_mem gaussian_kernel_mem = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, sizeof(gaussian_kernel), gaussian_kernel, &err);
+	if (err) { error("could not create Gaussian kernel global memory object\n"); }
+
+	// Set the kernel arguments
+	clSetKernelArg(first_pass_kernel, 0, sizeof(input_img), &input_img);
+	clSetKernelArg(first_pass_kernel, 1, sizeof(output_img), &output_img);
+	clSetKernelArg(first_pass_kernel, 2, sizeof(gaussian_kernel_mem), &gaussian_kernel_mem);
+	clSetKernelArg(first_pass_kernel, 3, sizeof(gaussian_kernel), NULL);
+
+	// Release all OpenCL objects
 	clReleaseContext(context);
+	clReleaseProgram(program);
+	clReleaseCommandQueue(command_queue);
+	clReleaseKernel(first_pass_kernel);
 
-	(void) blur_type;
-	(void) img_datap;
-
+	// Free allocated memory
+	free(gaussian_kernel);
+	free(buf);
+	free(program_log);
+	free(format);
 
 	exit(0);
 }

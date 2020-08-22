@@ -201,7 +201,7 @@ int main(int argc, char **argv) {
 		blur_cpu(&img_data, input_parameters.std_dev, input_parameters.config);
 	
 	} else {
-		blur_gpu(&img_data, input_parameters.std_dev, input_parameters.config);
+		blur_gpu(&img_data, input_parameters.std_dev);
 	}
 
 	// Write the blurred image to the output file

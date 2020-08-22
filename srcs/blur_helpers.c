@@ -15,22 +15,22 @@
  * @param [output] gaussian_kernel : the 1D kernel to fill the values with
  * @param std_dev : the standard deviation of the gaussian filter
  */
-void calculate_kernel(double **gaussian_kernel, unsigned gaussian_kernel_len, unsigned std_dev) {
+void calculate_kernel(float **gaussian_kernel, unsigned gaussian_kernel_len, unsigned std_dev) {
 	// Calculate some constants used in gaussian blur calculation
 	unsigned offset = RADIUS * std_dev;
-	double exponent_denominator = 2 * std_dev * std_dev;
+	float exponent_denominator = 2 * std_dev * std_dev;
 	
 	// Process gaussian value of x = 0 so it doesn't get processed twice in the loop
 	(*gaussian_kernel)[offset] = 1;
-	double sum = 1;
+	float sum = 1;
 	
 	// Calculate value of gaussian value of x component of corresponding kernel index
 	// loop over half the kernel (not including x = 0) because its symmetrical	
 	unsigned half_kernel = gaussian_kernel_len / 2;
 	for (unsigned i = 0; i < half_kernel; ++i) {
 		int gaussian_x = i - offset; // Actual x coordinate in gaussian function of kernel index 
-		double exponent = -((gaussian_x * gaussian_x) / exponent_denominator); // -(x^2 / 2 * sigma^2)
-		double gauss_val = exp(exponent); // e^(exponent) = value of gaussian function at the x coordinate
+		float exponent = -((gaussian_x * gaussian_x) / exponent_denominator); // -(x^2 / 2 * sigma^2)
+		float gauss_val = exp(exponent); // e^(exponent) = value of gaussian function at the x coordinate
 
 		(*gaussian_kernel)[i] = gauss_val; // Store the value of gaussian function in the correct index left of 0 
 		(*gaussian_kernel)[gaussian_kernel_len - i - 1] = gauss_val; // Store the value of gaussian function in index right of 0
@@ -51,13 +51,13 @@ void calculate_kernel(double **gaussian_kernel, unsigned gaussian_kernel_len, un
  * @param gaussian_kernel : pointer to the kernel to be output
  * @param gaussian_kernel_len : the length of the kernel in pixels
  */
-void print_kernel(double *gaussian_kernel, unsigned gaussian_kernel_len) {
+void print_kernel(float *gaussian_kernel, unsigned gaussian_kernel_len) {
 	printf("Normalized Gaussian Blur Kernel (1 Dimensional): \n[ ");
 	
 	// Print out each element of the kernel
-	double sum = 0;
+	float sum = 0;
 	for (unsigned i = 0; i < gaussian_kernel_len; ++i) {
-		double val = gaussian_kernel[i];
+		float val = gaussian_kernel[i];
 		printf("%lf ", val);
 		sum += val;
 	}

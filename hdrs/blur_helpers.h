@@ -14,13 +14,13 @@
  * @param [output] gaussian_kernel : the 1D kernel to fill the values with
  * @param std_dev : the standard deviation of the gaussian filter
  */
-void calculate_kernel(double **gaussian_kernel, unsigned gaussian_kernel_len, unsigned std_dev);
+void calculate_kernel(float **gaussian_kernel, unsigned gaussian_kernel_len, unsigned std_dev);
 
 /**
  * Prints out the gaussian kernel to be used in the program
  * @param gaussian_kernel : pointer to the kernel to be output
  * @param gaussian_kernel_len : the length of the kernel in pixels
  */
-void print_kernel(double *gaussian_kernel, unsigned gaussian_kernel_len);
+void print_kernel(float *gaussian_kernel, unsigned gaussian_kernel_len);
 
 #endif /* BLUR_HELPERS_SEEN */

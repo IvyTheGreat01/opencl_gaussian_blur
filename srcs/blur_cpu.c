@@ -26,7 +26,7 @@ struct Thread_Params {
 	struct Img_Data *img_datap;
 	unsigned start_row;
 	unsigned last_row;
-	double *gaussian_kernel;
+	float *gaussian_kernel;
 	unsigned gaussian_kernel_len;
 	unsigned offset;
 	unsigned pass;
@@ -46,7 +46,7 @@ struct Thread_Params {
  * @param height : the height of the image in pixels
  * @param pass : 1 if its the first pass of the blur, 2 if its the second pass (illegal inputs not checked so make sure calling function gives correct pass value)
  */
-void blur_pixel(struct Img_Data *img_datap, unsigned row, unsigned col, double *gaussian_kernel, unsigned gaussian_kernel_len, unsigned offset, unsigned pass) {
+void blur_pixel(struct Img_Data *img_datap, unsigned row, unsigned col, float *gaussian_kernel, unsigned gaussian_kernel_len, unsigned offset, unsigned pass) {
 	// Set the input and output buffers of this blur depending on the pass
 	png_bytep *input_ptrs;
 	png_bytep *output_ptrs;
@@ -64,9 +64,9 @@ void blur_pixel(struct Img_Data *img_datap, unsigned row, unsigned col, double *
 	unsigned height = img_datap->height;
 	
 	// Initialize sum values used in the weighted average calculation of the target pixel
-	double sum_r = 0;
-	double sum_g = 0;
-	double sum_b = 0;
+	float sum_r = 0;
+	float sum_g = 0;
+	float sum_b = 0;
 	
 	// Loop over the gaussian kernel and muliply with the correct pixel
 	for (unsigned i = 0; i < gaussian_kernel_len; ++i) {
@@ -85,7 +85,7 @@ void blur_pixel(struct Img_Data *img_datap, unsigned row, unsigned col, double *
 		// The cast to (int) should not cause issues because libpng constrains input image to 1 million pixels
 		if (!(cur_pxl_row < 0 || cur_pxl_row > (int) height - 1 || cur_pxl_col < 0 || cur_pxl_col > (int) width - 1)) {
 			// Multiply the input image pixel coordinates with the gaussian filter and add it to the sum
-			double multiplier = gaussian_kernel[i];
+			float multiplier = gaussian_kernel[i];
 			png_bytep pxl = input_ptrs[cur_pxl_row] + pixel_length * cur_pxl_col;
 			sum_r += *(pxl + 0) * multiplier;
 			sum_g += *(pxl + 1) * multiplier;
@@ -111,7 +111,7 @@ void *multithreaded_blur(void *thread_params) {
 	struct Img_Data *img_datap = tp->img_datap;
 	unsigned start_row = tp->start_row;
 	unsigned last_row = tp->last_row;
-	double *gaussian_kernel = tp->gaussian_kernel;
+	float *gaussian_kernel = tp->gaussian_kernel;
 	unsigned gaussian_kernel_len = tp->gaussian_kernel_len;
 	unsigned offset = tp->offset;
 	unsigned pass = tp->pass;
@@ -141,19 +141,19 @@ void *multithreaded_blur(void *thread_params) {
 void blur_cpu(struct Img_Data *img_datap, unsigned std_dev, unsigned num_threads) {
 	// Create the 1D Gaussian convolution kernel and output it
 	unsigned gaussian_kernel_len = std_dev * RADIUS * 2 + 1;
-	double *gaussian_kernel = malloc(sizeof(double) * gaussian_kernel_len);
+	float *gaussian_kernel = malloc(sizeof(float) * gaussian_kernel_len);
 	calculate_kernel(&gaussian_kernel, gaussian_kernel_len, std_dev);
 	print_kernel(gaussian_kernel, gaussian_kernel_len);
 		
 	// Declare the desired number of threads (and their params) and the number of rows they operate on
 	pthread_t threads[num_threads];
 	struct Thread_Params tps[num_threads];
-	unsigned num_rows_per_thread = ceil( (double) img_datap->height / num_threads);
+	unsigned num_rows_per_thread = ceil( (float) img_datap->height / num_threads);
 
 	// Start timing the duration of the blur
 	printf("Blurring...\n");
 	struct timespec start, finish;
-	double duration;
+	float duration;
 	clock_gettime(CLOCK_MONOTONIC, &start);
 	
 	// Loop over both passes of the blur

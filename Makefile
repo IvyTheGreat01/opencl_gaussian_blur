@@ -18,8 +18,11 @@ ROCM_LINK = $(ROCM)/lib
 $(OUTPUT): $(OBJ)
 	$(CC) $(OBJ) -o $(OUTPUT) $(CFLAGS) -lOpenCL -L $(ROCM_LINK)
 
-$(OBJDIR)/%.o: $(SRCDIR)/%.c
+$(OBJDIR)/blur_gpu.o: $(SRCDIR)/blur_gpu.c $(HDRDIR)/blur_gpu.h $(SRCDIR)/blur_kernel.cl
 	$(CC) -c $< -o $@ $(CFLAGS) -I $(HDRDIR) -I $(ROCM_INC)
+
+$(OBJDIR)/%.o: $(SRCDIR)/%.c $(HDRDIR)/%.h
+	$(CC) -c $< -o $@ $(CFLAGS) -I $(HDRDIR)
 
 .PHONY: clean
 clean:

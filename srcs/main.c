@@ -141,26 +141,18 @@ void parse_input_args(struct Input_Pars *input_parameters, int argc, char **argv
 }
 
 /**
- * Create the two arrays output array used in the blur filter
+ * Create 3, 1D image arrays to store input, output and temp of the blur, and put libpng multi array into img_datap->arr1
  * @param img_data : struct stores input image information, new_row_pointers value updated at return
  * @return 0 on success, 1 on failure
  */
 int create_new_img_arrays(struct Img_Data *img_datap) {
-	// Create an array of pointers to each row of the new image (first pass and second pass)
-	png_bytep *row_ptrs_p1 = malloc(sizeof(png_bytep) * img_datap->height);
-	png_bytep *row_ptrs_p2 = malloc(sizeof(png_bytep) * img_datap->height);
-
-	// Loop over every row of the new images and allocate enough space for all pixels on that row
-	unsigned num_actual_bytes_per_row = sizeof(png_byte) * img_datap->pixel_length * img_datap->width;
-	for (unsigned row = 0; row < img_datap->height; ++row) {
-		if (!(row_ptrs_p1[row] = calloc(num_actual_bytes_per_row, 1))) { return 1; }
-		if (!(row_ptrs_p2[row] = calloc(num_actual_bytes_per_row, 1))) { return 1; }
-	}
+	// Create 3 arrays to store the image data
 	
-	// Save pointers to the new arrays in img_data
-	img_datap->row_ptrs_p1 = row_ptrs_p1;
-	img_datap->row_ptrs_p2 = row_ptrs_p2;
-
+	img_datap->arrays = malloc(sizeof(unsigned char *) * 3);
+	for (unsigned i = 0; i < 3; ++i) {
+		img_datap->arrays[i] = calloc(img_datap->width * img_datap->height * img_datap->pixel_length, sizeof(unsigned char));
+		if (img_datap->arrays[i] == NULL) { error("could not allocate temporary image buffers\n"); }
+	}
 	return 0;
 }
 
@@ -193,8 +185,9 @@ int main(int argc, char **argv) {
 	read_png(&img_data, input_parameters.filename);
 	printf("Image Width: %u, Image Height: %u, Bit Depth: %u, Colour Type: %u\n\n", img_data.width, img_data.height, img_data.bit_depth, img_data.colour_type);
 
-	// Allocate space to store new modified image
+	// Allocate space to store new modified image and copy image from img_datap->row_pointers to img_datap->arr1
 	if (create_new_img_arrays(&img_data)) { error("could not allocate enough space in memory for output image\n"); }
+	copy_row_pointers_and_arr(&img_data, 0, 1);
 	
 	// Call correct blur function depending on device
 	if (input_parameters.device == 'c') {
@@ -205,11 +198,12 @@ int main(int argc, char **argv) {
 	}
 
 	// Write the blurred image to the output file
+	copy_row_pointers_and_arr(&img_data, 2, 0);
 	char output_filename[strlen(input_parameters.filename) + OUTPUT_MODIFIER_LEN + 1];
 	get_output_filename(input_parameters.filename, output_filename);
 	write_png(&img_data, output_filename);
 
-	// Free the img_data struct and the filename array
+	// Free the img_data struct
 	free_img_data_struct(&img_data);
 
 	// Output the output image filename

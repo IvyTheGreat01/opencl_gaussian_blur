@@ -48,18 +48,11 @@ struct Thread_Params {
  */
 void blur_pixel(struct Img_Data *img_datap, unsigned row, unsigned col, float *gaussian_kernel, unsigned gaussian_kernel_len, unsigned offset, unsigned pass) {
 	// Set the input and output buffers of this blur depending on the pass
-	png_bytep *input_ptrs;
-	png_bytep *output_ptrs;
-	if (pass == 1) {
-		input_ptrs = img_datap->row_pointers;
-		output_ptrs = img_datap->row_ptrs_p1;
-	} else if (pass == 2) {
-		input_ptrs = img_datap->row_ptrs_p1;
-		output_ptrs = img_datap->row_ptrs_p2;
-	}
+	unsigned char *input_arr = img_datap->arrays[pass - 1];
+	unsigned char *output_arr = img_datap->arrays[pass];
 
 	// Set the rest of the values in img_data used in this blur
-	unsigned pixel_length = img_datap->pixel_length;
+	unsigned pxl_length = img_datap->pixel_length;
 	unsigned width = img_datap->width;
 	unsigned height = img_datap->height;
 	
@@ -83,21 +76,23 @@ void blur_pixel(struct Img_Data *img_datap, unsigned row, unsigned col, float *g
 
 		// Make sure none of the values are out of bounds (otherwise don't include that pixel in the blur for this pixel)
 		// The cast to (int) should not cause issues because libpng constrains input image to 1 million pixels
-		if (!(cur_pxl_row < 0 || cur_pxl_row > (int) height - 1 || cur_pxl_col < 0 || cur_pxl_col > (int) width - 1)) {
-			// Multiply the input image pixel coordinates with the gaussian filter and add it to the sum
-			float multiplier = gaussian_kernel[i];
-			png_bytep pxl = input_ptrs[cur_pxl_row] + pixel_length * cur_pxl_col;
-			sum_r += *(pxl + 0) * multiplier;
-			sum_g += *(pxl + 1) * multiplier;
-			sum_b += *(pxl + 2) * multiplier;
+		if (!(cur_pxl_row < 0 || cur_pxl_row >= (int) height || cur_pxl_col < 0 || cur_pxl_col >= (int) width)) {
+			// Get a pointer to the pixel being multiplied this iteration
+			unsigned char *pxl = input_arr + (cur_pxl_row * width * pxl_length) + (cur_pxl_col * pxl_length);
+			
+			// Multiply each component of the input pixel with the corresponding element of the gaussian kernel
+			sum_r += *(pxl + 0) * gaussian_kernel[i];
+			sum_g += *(pxl + 1) * gaussian_kernel[i];
+			sum_b += *(pxl + 2) * gaussian_kernel[i];
 		}
 	}
 
-	// Calculate and round the average for each component of the target pixel and store it at the target pixel of the first pass output image
-	*(output_ptrs[row] + pixel_length * col + 0) = (png_byte) round(sum_r); 
-       	*(output_ptrs[row] + pixel_length * col + 1) = (png_byte) round(sum_g);
-	*(output_ptrs[row] + pixel_length * col + 2) = (png_byte) round(sum_b);
-	*(output_ptrs[row] + pixel_length * col + 3) = *(input_ptrs[row] + pixel_length * col + 3);
+	// Round the average of each component of the target pixel and store it in the output image array
+	unsigned target_pxl = (row * width * pxl_length) + (col * pxl_length);
+	output_arr[target_pxl + 0] = (unsigned char) round(sum_r);
+	output_arr[target_pxl + 1] = (unsigned char) round(sum_g);
+	output_arr[target_pxl + 2] = (unsigned char) round(sum_b);
+	output_arr[target_pxl + 3] = input_arr[target_pxl + 3];
 }
 
 /**

@@ -13,14 +13,15 @@
  * Struct that stores the information of this image
  * png_ptr : pointer to libpng struct of the input image
  * info_ptr : pointer to libpng info struct of the input image
- * row_pointers : array of pointers to each row of the input image
+ * row_pointers : array of pointers to each row of the input image (this is only used for i/o with libpng, must be copied to/from arr{x} for blurring)
  * width : width of the input image in pixels
  * height : height of the input image in pixels
  * colour_type : colour type of the input image in png notation (must be 6 (RGBA) for this program to work)
  * bit_depth : bit depth of the input image (must be 8 for this program to work)
  * pixel_length : length of each pixel in bytes (must be 4 for this program to work)
- * row_ptrs_p1 : array of pointers to each row of the output image of the first pass of the blur
- * row_ptrs_p2 : array of pointers to each row of the output image of the second pass of the blur (program output img) 
+ * arr1 : 1D array to store the input image
+ * arr2 : 1D array to store the image after first blurring pass
+ * arr3 : 1D array to store the image after second blurring pass
  */
 struct Img_Data {
 	png_structp png_ptr;
@@ -31,9 +32,16 @@ struct Img_Data {
 	unsigned colour_type;
 	unsigned bit_depth;
 	unsigned pixel_length;
-	png_bytep *row_ptrs_p1;
-	png_bytep *row_ptrs_p2;
+	unsigned char **arrays;
 };
+
+/**
+ * Copy the image data between img_datap->row_pointers and img_datap->arrays[arr_val]
+ * @param img_datap : pointer to img_data struct that stores all image information
+ * @param arr_val : index into desired array in img_datap->arrays[arr_val]
+ * @param io_to_comp : 1 means copy from row_pointers to arrays[arr_val], 0 means otherwise
+ */
+void copy_row_pointers_and_arr(struct Img_Data *img_datap, unsigned arr_val, unsigned io_to_comp);
 
 /**
  * Free img_data struct (should only be called after the two buffers have been created)

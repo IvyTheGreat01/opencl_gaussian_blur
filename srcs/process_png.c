@@ -51,6 +51,46 @@ bool init_read_structs(png_structp *png_ptr_p, png_infop *info_ptr_p) {
 }
 
 /**
+ * Copy the image data between img_datap->row_pointers and img_datap->arrays[arr_val]
+ * @param img_datap : pointer to img_data struct that stores all image information
+ * @param arr_val : index into desired array in img_datap->arrays[arr_val]
+ * @param io_to_comp : 1 means copy from row_pointers to arrays[arr_val], 0 means otherwise
+ */
+void copy_row_pointers_and_arr(struct Img_Data *img_datap, unsigned arr_val, unsigned io_to_comp) {
+	// Get the arrays involved in the copy
+	png_bytep *row_ptrs = img_datap->row_pointers;
+	unsigned char *arr = img_datap->arrays[arr_val];
+
+	// Get the image info
+	unsigned width = img_datap->width;
+	unsigned height = img_datap->height;
+	unsigned pxl_len = img_datap->pixel_length;
+
+	// Loop over each byte of each pixel of row_pointers and copy it to the correct index of arr1
+	for (unsigned row = 0; row < height; ++row) {
+		for (unsigned col = 0; col < width; ++col) {
+			// Get pointers to the pxls involved in the copy between the i/o array and the computation array
+			unsigned char *io_pxl = row_ptrs[row] + col * pxl_len;
+			unsigned char *comp_pxl = arr + (row * width * pxl_len) + (col * pxl_len);
+
+			// Copy the current pixel between the two arrays in the desired direction
+			if (io_to_comp) {
+				*(comp_pxl + 0) = *(io_pxl + 0);
+				*(comp_pxl + 1) = *(io_pxl + 1);
+				*(comp_pxl + 2) = *(io_pxl + 2);
+				*(comp_pxl + 3) = *(io_pxl + 3);
+			
+			} else {
+				*(io_pxl + 0) = *(comp_pxl + 0);
+				*(io_pxl + 1) = *(comp_pxl + 1);
+				*(io_pxl + 2) = *(comp_pxl + 2);
+				*(io_pxl + 3) = *(comp_pxl + 3);
+			}
+		}
+	}
+}
+
+/**
  * Reads a png image and stores image data at img_p
  * @param [output] img_datap : pointer to struct storing input image data needed for program
  * @param filename : filepath to the input image the program will be blurring
@@ -106,22 +146,18 @@ void read_png(struct Img_Data *img_datap, char *filename) {
 }
 
 /**
- * Free img_data struct (should only be called after the two buffers have been created)
+ * Free img_data struct (should only be called after the three buffers have been created)
  * @param img_datap : pointer to the img_data struct to be freed
  */
 void free_img_data_struct(struct Img_Data *img_datap) {
 	// Free the two read structs from read_png first (this also frees img_data->row_pointers)
 	png_destroy_read_struct(&(img_datap->png_ptr), &(img_datap->info_ptr), (png_infopp) NULL);
 
-	// Free the rows of the two buffers that were calloced for storing the blurred image
-	for (unsigned row = 0; row < img_datap->height; ++row) {
-		free(img_datap->row_ptrs_p1[row]);
-		free(img_datap->row_ptrs_p2[row]);
+	// Free all the arrays
+	for (unsigned i = 0; i < 3; ++i) {
+		free(img_datap->arrays[i]);
 	}
-	
-	// Free the two buffers
-	free(img_datap->row_ptrs_p1);
-	free(img_datap->row_ptrs_p2);
+	free(img_datap->arrays);
 }
 
 /**
@@ -152,7 +188,7 @@ void write_png(struct Img_Data *img_datap, char *filename) {
 
 	// Write the PNG
 	png_init_io(write_png_ptr, fp);
-	png_set_rows(write_png_ptr, img_datap->info_ptr, img_datap->row_ptrs_p2);
+	png_set_rows(write_png_ptr, img_datap->info_ptr, img_datap->row_pointers);
 	png_write_png(write_png_ptr, img_datap->info_ptr, PNG_TRANSFORM_IDENTITY, NULL);
 	fclose(fp);
 

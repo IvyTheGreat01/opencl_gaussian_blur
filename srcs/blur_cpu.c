@@ -139,18 +139,18 @@ void blur_cpu(struct Img_Data *img_datap, unsigned std_dev, unsigned num_threads
 	float *gaussian_kernel = malloc(sizeof(float) * gaussian_kernel_len);
 	calculate_kernel(&gaussian_kernel, gaussian_kernel_len, std_dev);
 	print_kernel(gaussian_kernel, gaussian_kernel_len);
-		
-	// Declare the desired number of threads (and their params) and the number of rows they operate on
-	pthread_t threads[num_threads];
-	struct Thread_Params tps[num_threads];
-	unsigned num_rows_per_thread = ceil( (float) img_datap->height / num_threads);
 
 	// Start timing the duration of the blur
 	printf("Blurring...\n");
 	struct timespec start, finish;
 	float duration;
 	clock_gettime(CLOCK_MONOTONIC, &start);
-	
+		
+	// Declare the desired number of threads (and their params) and the number of rows they operate on
+	pthread_t threads[num_threads];
+	struct Thread_Params tps[num_threads];
+	unsigned num_rows_per_thread = ceil( (float) img_datap->height / num_threads);
+
 	// Loop over both passes of the blur
 	for (unsigned pass = 1; pass < 3; ++pass) {
 		// Create all the threads for the current pass

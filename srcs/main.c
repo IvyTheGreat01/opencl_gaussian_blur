@@ -183,8 +183,7 @@ int main(int argc, char **argv) {
 	// Read and store png file in img_data and output some core information
 	struct Img_Data img_data;
 	read_png(&img_data, input_parameters.filename);
-	printf("Image Width: %u, Image Height: %u, Bit Depth: %u, Colour Type: %u\n\n", img_data.width, img_data.height, img_data.bit_depth, img_data.colour_type);
-
+	
 	// Allocate space to store new modified image and copy image from img_datap->row_pointers to img_datap->arr1
 	if (create_new_img_arrays(&img_data)) { error("could not allocate enough space in memory for output image\n"); }
 	copy_row_pointers_and_arr(&img_data, 0, 1);

@@ -126,23 +126,25 @@ void read_png(struct Img_Data *img_datap, char *filename) {
 	png_read_png(png_ptr, info_ptr, PNG_TRANSFORM_IDENTITY, NULL);
 	fclose(fp);
 	
-	// Make sure the colour type of the png is RGBA and the bit depth is 8
-	unsigned colour_type = png_get_color_type(png_ptr, info_ptr);
-	unsigned bit_depth = png_get_bit_depth(png_ptr, info_ptr);
-	if (colour_type != 6 && bit_depth != 8) {
-		png_destroy_read_struct(&png_ptr, &info_ptr, (png_infopp) NULL);
-		error("input image colour type is not RGBA with bit depth 8\n");
-	}
-
 	// Save the values in img_data for use by the rest of the program
 	img_datap->png_ptr = png_ptr;
 	img_datap->info_ptr = info_ptr;
 	img_datap->row_pointers = png_get_rows(png_ptr, info_ptr);
 	img_datap->width = png_get_image_width(png_ptr, info_ptr);
 	img_datap->height = png_get_image_height(png_ptr, info_ptr);
-	img_datap->bit_depth = bit_depth; 
-	img_datap->colour_type = colour_type;
+	img_datap->bit_depth = png_get_bit_depth(png_ptr, info_ptr); 
+	img_datap->colour_type = png_get_color_type(png_ptr, info_ptr);
 	img_datap->pixel_length = 4;
+
+	// Output core image information	
+	printf("Image Width: %u, Image Height: %u, Bit Depth: %u, Colour Type: %u\n\n", 
+			img_datap->width, img_datap->height, img_datap->bit_depth, img_datap->colour_type);
+
+	// Make sure core image information is acceptable for the program
+	if (img_datap->bit_depth != 8 || img_datap->colour_type != 6) {
+		png_destroy_read_struct(&png_ptr, &info_ptr, (png_infopp) NULL);
+		error("input image colour type is not RGBA with bit depth 8\n");
+	}
 }
 
 /**

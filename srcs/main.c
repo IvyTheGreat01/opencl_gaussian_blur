@@ -14,7 +14,7 @@
 #include "blur_gpu.h"
 #include "error.h"
 
-#define OUTPUT_MODIFIER "gb"
+#define OUTPUT_MODIFIER "_gb"
 
 
 /**
@@ -139,8 +139,8 @@ void parse_input_args(struct Input_Pars *input_parameters, int argc, char **argv
 int create_new_img_arrays(struct Img_Data *img_datap) {
 	// Create 3 arrays to store the image data
 	
-	img_datap->arrays = malloc(sizeof(unsigned char *) * 3);
-	for (unsigned i = 0; i < 3; ++i) {
+	img_datap->arrays = malloc(sizeof(unsigned char *) * 2);
+	for (unsigned i = 0; i < 2; ++i) {
 		img_datap->arrays[i] = calloc(img_datap->width * img_datap->height * img_datap->pixel_length, sizeof(unsigned char));
 		if (img_datap->arrays[i] == NULL) { error("could not allocate temporary image buffers\n"); }
 	}
@@ -188,7 +188,7 @@ int main(int argc, char **argv) {
 	}
 
 	// Write the blurred image to the output file
-	copy_row_pointers_and_arr(&img_data, 2, 0);
+	copy_row_pointers_and_arr(&img_data, 0, 0);
 	char output_filename[strlen(input_parameters.filename) + strlen(OUTPUT_MODIFIER) + 1];
 	get_output_filename(input_parameters.filename, output_filename);
 	write_png(&img_data, output_filename);

@@ -156,7 +156,7 @@ void free_img_data_struct(struct Img_Data *img_datap) {
 	png_destroy_read_struct(&(img_datap->png_ptr), &(img_datap->info_ptr), (png_infopp) NULL);
 
 	// Free all the arrays
-	for (unsigned i = 0; i < 3; ++i) {
+	for (unsigned i = 0; i < 2; ++i) {
 		free(img_datap->arrays[i]);
 	}
 	free(img_datap->arrays);

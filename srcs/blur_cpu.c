@@ -44,12 +44,12 @@ struct Thread_Params {
  * @param pixel_length : the length of a pixel in bytes
  * @param width : the width of the image in pixels
  * @param height : the height of the image in pixels
- * @param pass : 1 if its the first pass of the blur, 2 if its the second pass (illegal inputs not checked so make sure calling function gives correct pass value)
+ * @param pass : 0 if its the first pass of the blur, 1 if its the second pass (illegal inputs not checked so make sure calling function gives correct pass value)
  */
 void blur_pixel(struct Img_Data *img_datap, unsigned row, unsigned col, float *gaussian_kernel, unsigned gaussian_kernel_len, unsigned offset, unsigned pass) {
 	// Set the input and output buffers of this blur depending on the pass
-	unsigned char *input_arr = img_datap->arrays[pass - 1];
-	unsigned char *output_arr = img_datap->arrays[pass];
+	unsigned char *input_arr = img_datap->arrays[0 + pass];
+	unsigned char *output_arr = img_datap->arrays[1 - pass];
 
 	// Set the rest of the values in img_data used in this blur
 	unsigned pxl_length = img_datap->pixel_length;
@@ -152,7 +152,7 @@ void blur_cpu(struct Img_Data *img_datap, unsigned std_dev, unsigned num_threads
 	unsigned num_rows_per_thread = ceil( (float) img_datap->height / num_threads);
 
 	// Loop over both passes of the blur
-	for (unsigned pass = 1; pass < 3; ++pass) {
+	for (unsigned pass = 0; pass < 2; ++pass) {
 		// Create all the threads for the current pass
 		for (unsigned thread = 0; thread < num_threads; ++thread) {
 			// Set all the values of the correct Thread_Params struct

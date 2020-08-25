@@ -14,8 +14,7 @@
 #include "blur_gpu.h"
 #include "error.h"
 
-#define OUTPUT_MODIFIER "_blrd"
-#define OUTPUT_MODIFIER_LEN 5
+#define OUTPUT_MODIFIER "gb"
 
 
 /**
@@ -23,13 +22,13 @@
  * filename : filename of the input image
  * std_dev : standard deviation of the gaussian blur (must be pos int)
  * device : device to run this program on (must be 'c' for cpu or 'g' for gpu)
- * config : device settings for the device (if device 'c' config = num_threads, if device 'g' config = 1 for discrete sampling or config = 2 for bilinear sampling)
+ * threads : number of threads (only set for if device = gpu) 
  */
 struct Input_Pars {
 	char *filename;
 	unsigned std_dev;
 	char device;
-	unsigned config;
+	unsigned threads;
 }; 
 
 
@@ -38,12 +37,11 @@ struct Input_Pars {
  * @param program_name : name of this program
  */
 void usage_msg(char *program_name) {
-	fprintf(stderr, "Usage: %s input.png standard_deviation device config\n", program_name);
+	fprintf(stderr, "Usage: %s input.png standard_deviation device [threads]\n", program_name);
 	fprintf(stderr, "	input.png = png image to be blurred\n");
 	fprintf(stderr, "	standard_deviation = 'pos_int'\n");
 	fprintf(stderr, "	device = 'c' for running on cpu, device = 'g' for running on gpu\n");
-	fprintf(stderr, "	if device = 'c', config = 'num_threads'\n");
-	fprintf(stderr, "	if device = 'g', config = '1' for discrete sampling, config = '2' for bilinear sampling\n\n");
+	fprintf(stderr, "	if device = 'c', threads = number of threads (no threads specified means 1)\n\n");
 }
 
 /**
@@ -54,22 +52,12 @@ void usage_msg(char *program_name) {
 void print_input_args(struct Input_Pars *input_parameters) {
 	fprintf(stdout, "Input Image: %s\n", input_parameters->filename);
 	fprintf(stdout, "Standard Deviation: %u\n", input_parameters->std_dev);
-	
 	if (input_parameters->device == 'c') {
 		fprintf(stdout, "Device: cpu\n");
-		fprintf(stdout, "Num Threads: %u\n", input_parameters->config);
-
+		fprintf(stdout, "Num Threads: %u\n", input_parameters->threads);
 	} else {
 		fprintf(stdout, "Device: gpu\n");
-
-		if (input_parameters->config == 1) {
-			fprintf(stdout, "Sampling: discrete\n");
-	
-		} else {
-			fprintf(stdout, "Sampling: bilinear\n");
-		}
 	}
-
 	fprintf(stdout, "\n");
 }
 
@@ -85,7 +73,6 @@ bool is_pos_int(char *input) {
 
 		if (!isdigit(input[i])) { return false; }
 	}
-	
 	return !(zero_counter == strlen(input));
 }
 
@@ -96,8 +83,8 @@ bool is_pos_int(char *input) {
  * @param argv : command line arguments
  */
 void parse_input_args(struct Input_Pars *input_parameters, int argc, char **argv) {
-	// Print usage message if there are not exactly 4 command line arguments or if -help was input
-	if (argc != 5 || !strcmp(argv[1], "-help")) {
+	// Print usage message if there are not exactly 4 or 3 command line arguments or if -help was input
+	if ((argc != 5 && argc != 4) || !strcmp(argv[1], "-help")) {
 		usage_msg(argv[0]);
 		exit(1);
 	}
@@ -121,14 +108,14 @@ void parse_input_args(struct Input_Pars *input_parameters, int argc, char **argv
 		exit(1);
 	}
 
-	// Print usage message if config is not a positive integer
-	if (!is_pos_int(argv[4])) {
+	// Print usage message if device is 'c' and threads exists and threads is not a positive integer
+	if (argv[3][0] == 'c' && argc == 5 &&  !is_pos_int(argv[4])) {
 		usage_msg(argv[0]);
 		exit(1);
 	}
 		
-	// Print usage message if device is 'g' and config is not (1 or 2)
-	if (argv[3][0] == 'g' && argv[4][0] != '1' && argv[4][0] != '2') {
+	// Print usage message if device is 'g' and there is a threads argument
+	if (argv[3][0] == 'g' && argc == 5) {
 		usage_msg(argv[0]);
 		exit(1);
 	}
@@ -137,7 +124,11 @@ void parse_input_args(struct Input_Pars *input_parameters, int argc, char **argv
 	input_parameters->filename = argv[1];
 	input_parameters->std_dev = strtol(argv[2], NULL, 10);
 	input_parameters->device = argv[3][0];
-	input_parameters->config = strtol(argv[4], NULL, 10);
+	if (argc == 5) {
+		input_parameters->threads = strtol(argv[4], NULL, 10);
+	} else {
+		input_parameters->threads = 1;
+	} 
 }
 
 /**
@@ -165,7 +156,7 @@ void get_output_filename(char *input_filename, char *output_filename) {
 	output_filename[0] = '\0';
 	strncat(output_filename, input_filename, strlen(input_filename) - 4);
 	output_filename[strlen(input_filename) - 3] = '\0';
-	strncat(output_filename, OUTPUT_MODIFIER, OUTPUT_MODIFIER_LEN + 1);
+	strncat(output_filename, OUTPUT_MODIFIER, strlen(OUTPUT_MODIFIER) + 1);
 	strncat(output_filename, input_filename + strlen(input_filename) - 4, 5);
 }
 
@@ -190,7 +181,7 @@ int main(int argc, char **argv) {
 	
 	// Call correct blur function depending on device
 	if (input_parameters.device == 'c') {
-		blur_cpu(&img_data, input_parameters.std_dev, input_parameters.config);
+		blur_cpu(&img_data, input_parameters.std_dev, input_parameters.threads);
 	
 	} else {
 		blur_gpu(&img_data, input_parameters.std_dev);
@@ -198,7 +189,7 @@ int main(int argc, char **argv) {
 
 	// Write the blurred image to the output file
 	copy_row_pointers_and_arr(&img_data, 2, 0);
-	char output_filename[strlen(input_parameters.filename) + OUTPUT_MODIFIER_LEN + 1];
+	char output_filename[strlen(input_parameters.filename) + strlen(OUTPUT_MODIFIER) + 1];
 	get_output_filename(input_parameters.filename, output_filename);
 	write_png(&img_data, output_filename);
 

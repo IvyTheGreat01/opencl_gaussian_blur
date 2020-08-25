@@ -10,7 +10,7 @@
 #define CL_FILE "srcs/blur_kernel.cl"
 
 // Template for options string to be passed when building OpenCL program for OpenCL version 1.2
-#define CL_OPTIONS "-cl-std=CL1.2 -D GAUSSIAN_KERNEL_LEN=%u -D OFFSET=%u -D IMG_WIDTH=%u -D IMG_HEIGHT=%u"
+#define CL_OPTIONS "-cl-std=CL2.0 -D GAUSSIAN_KERNEL_LEN=%u -D OFFSET=%u -D IMG_WIDTH=%u -D IMG_HEIGHT=%u"
 
 // Number of work items in a work group
 #define WORK_ITEMS_PER_GROUP 256
@@ -143,14 +143,14 @@ void blur_gpu(struct Img_Data *img_datap, unsigned std_dev) {
 	
 	// Read kernel source file into buffer
 	char *buf = malloc(sizeof(char) * (src_size + 1));
-	if (fread(buf, sizeof(char), src_size, fp) != (long unsigned) src_size) { error("could not read " CL_FILE "\n"); }	
+	if (fread(buf, sizeof(char), src_size + 1, fp) != (long unsigned) src_size) { error("could not read " CL_FILE "\n"); }	
 	buf[src_size] ='\0';
 	if (fclose(fp)) { error("could not close " CL_FILE "\n"); }
 
 	// Create the program
 	cl_program program = clCreateProgramWithSource(context, 1, (const char **) &buf, NULL, &err);
 	if (err != CL_SUCCESS) { error("could not create OpenCL program\n"); }
-	
+		
 	// Calculate the number of characters to represent each MACRO to be sent to the kernels
 	unsigned size = snprintf(NULL, 0, "%u", gaussian_kernel_len);
 	size += snprintf(NULL, 0, "%u", offset);
@@ -158,8 +158,9 @@ void blur_gpu(struct Img_Data *img_datap, unsigned std_dev) {
 	size += snprintf(NULL, 0, "%u", img_datap->width);
 
 	// Create options string for building program
-	char options[size + sizeof(CL_OPTIONS) - 4 * 2];
+	char options[size + strlen(CL_OPTIONS) - (4 * 2) + 1];
 	snprintf(options, sizeof(options), CL_OPTIONS, gaussian_kernel_len, offset, img_datap->width, img_datap->height);
+	options[size + strlen(CL_OPTIONS) - (4 * 2)] = '\0';
 	
 	// Build the program
 	err = clBuildProgram(program, 1, &device, (const char *) options, NULL, NULL);
@@ -190,12 +191,21 @@ void blur_gpu(struct Img_Data *img_datap, unsigned std_dev) {
 	// Create the gaussian kernel buffer memory object
 	cl_mem gaussian_kernel_mem = clCreateBuffer(context, CL_MEM_READ_ONLY, gaussian_kernel_len * sizeof(float), NULL, &err);
 	if (err) { error("could not create gaussian kernel global memory object\n"); }
-
-	// Write the input image into the input image object
+	
+	// Set the origin, region and pitch used by all the read/write and map/unmap operations
 	size_t origin[] = {0, 0, 0};
 	size_t region[] = {img_datap->width, img_datap->height, 1};
+	size_t row_pitch = img_datap->pixel_length * img_datap->width;
+
+	// Write the input image into img1
 	err = clEnqueueWriteImage(command_queue, img1, CL_TRUE, origin, region, 0, 0, img_datap->arrays[0], 0, NULL, NULL);
 	if (err != CL_SUCCESS) { error("could not write input image for first pass from host to device\n"); }
+
+	// Map the input image into img1_map and copy the input image into it
+	unsigned char *img1_map = clEnqueueMapImage(command_queue, img1, CL_TRUE, CL_MAP_WRITE_INVALIDATE_REGION, origin, region, &row_pitch, NULL, 0, NULL, NULL, &err);
+	if (err) { error("could not map input image to host\n"); }
+	memcpy(img1_map, img_datap->arrays[0], img_datap->width * img_datap->height * img_datap->pixel_length);
+	clEnqueueUnmapMemObject(command_queue, img1, img1_map, 0, NULL, NULL);
 
 	// Write the gaussian kernel into the gaussian kernel memory object
 	err = clEnqueueWriteBuffer(command_queue, gaussian_kernel_mem, CL_TRUE, 0, gaussian_kernel_len * sizeof(float), gaussian_kernel, 0, NULL, NULL);
@@ -209,19 +219,8 @@ void blur_gpu(struct Img_Data *img_datap, unsigned std_dev) {
 	} else if (clSetKernelArg(first_pass_kernel, 2, sizeof(cl_mem), &gaussian_kernel_mem) != CL_SUCCESS) { 
 		error("could not set gaussian filter OpenCL kernel argument\n");
 	}
-	/*
-	} else if (clSetKernelArg(first_pass_kernel, 3, sizeof(gaussian_kernel), NULL) != CL_SUCCESS) {
-		error("could not set device local gaussian filter OpenCL kernel argument\n");
-	}
-	*/
 
-	/*
-	// Enqueue the first pass kernel for execution
-	size_t global_work_size_width = WORK_ITEMS_PER_GROUP * ((img_datap->width + WORK_ITEMS_PER_GROUP - 1) / WORK_ITEMS_PER_GROUP);
-	size_t global_work_size[] = {global_work_size_width, img_datap->height};
-	size_t local_work_size[] = {WORK_ITEMS_PER_GROUP, 1};
-	clEnqueueNDRangeKernel(command_queue, first_pass_kernel, 2, NULL, global_work_size, local_work_size, 0, NULL, NULL);
-	*/
+	// Enqueue the kernel the first pass kernel
 	size_t global_work_size[] = {img_datap->width, img_datap->height};
 	clEnqueueNDRangeKernel(command_queue, first_pass_kernel, 2, NULL, global_work_size, NULL, 0, NULL, NULL); 
 
@@ -238,33 +237,21 @@ void blur_gpu(struct Img_Data *img_datap, unsigned std_dev) {
 	} else if (clSetKernelArg(second_pass_kernel, 2, sizeof(cl_mem), &gaussian_kernel_mem) != CL_SUCCESS) { 
 		error("could not set gaussian filter OpenCL kernel argument\n");
 	}
-
-	/*
-	} else if (clSetKernelArg(second_pass_kernel, 3, sizeof(gaussian_kernel), NULL) != CL_SUCCESS) {
-		error("could not set device local gaussian filter OpenCL kernel argument\n");
-	}
-	*/
-
-	/*
-	// Enqueue the second pass kernel for execution
-	size_t global_work_size_height = WORK_ITEMS_PER_GROUP * ((img_datap->height + WORK_ITEMS_PER_GROUP - 1) / WORK_ITEMS_PER_GROUP);
-	size_t global_work_size2[] = {img_datap->width, global_work_size_height};
-	size_t local_work_size2[] = {1, WORK_ITEMS_PER_GROUP};
-	clEnqueueNDRangeKernel(command_queue, second_pass_kernel, 2, NULL, global_work_size2, local_work_size2, 0, NULL, NULL);
-	*/
+	
+	// Enqueue the second pass kernel
 	clEnqueueNDRangeKernel(command_queue, second_pass_kernel, 2, NULL, global_work_size, NULL, 0, NULL, NULL);
-
+	
 	// Read the processed image back to host memory
 	clEnqueueReadImage(command_queue, img1, CL_TRUE, origin, region, 0, 0, img_datap->arrays[2], 0, NULL, NULL);
-	
-	// Release all OpenCL objects (TODO fix memory leak)
+
+	// Release all OpenCL objects
 	clReleaseMemObject(gaussian_kernel_mem);
 	clReleaseMemObject(img1);
 	clReleaseMemObject(img2);
 	clReleaseKernel(first_pass_kernel);
 	clReleaseKernel(second_pass_kernel);
 	clReleaseCommandQueue(command_queue);
-	clReleaseProgram(program);
+	// clReleaseProgram(program); // This line causes a memory error in Valgrind, idk why
 	clReleaseContext(context);
 
 	// Output the duration of the blur

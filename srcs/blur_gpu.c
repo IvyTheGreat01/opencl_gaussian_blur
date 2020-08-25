@@ -164,7 +164,7 @@ void blur_gpu(struct Img_Data *img_datap, unsigned std_dev) {
 	// Build the program
 	err = clBuildProgram(program, 1, &device, (const char *) options, NULL, NULL);
 	if (err) { print_error_build_log(&program, device); }
-
+	
 	// Create the command queue to the gpu
 	cl_command_queue command_queue = clCreateCommandQueue(context, device, CL_QUEUE_PROFILING_ENABLE, &err);
 	if (err != CL_SUCCESS) { error("could not create OpenCL command queue on the gpu\n"); }
@@ -179,12 +179,12 @@ void blur_gpu(struct Img_Data *img_datap, unsigned std_dev) {
 	cl_image_desc desc;
 	initialize_format_and_desc(&format, &desc, img_datap);
 	
-	// Create the input image object
-	cl_mem input_img = clCreateImage(context, CL_MEM_READ_ONLY, (const cl_image_format *) &format, (const cl_image_desc *) &desc, NULL, &err);
+	// Create first pass input image / second pass output image
+	cl_mem img1 = clCreateImage(context, CL_MEM_READ_WRITE, (const cl_image_format *) &format, (const cl_image_desc *) &desc, NULL, &err);
 	if (err) { error("could not create input image buffer object for first pass of the blur\n"); }
 
-	// Create the output image object
-	cl_mem output_img = clCreateImage(context, CL_MEM_WRITE_ONLY, (const cl_image_format *) &format, (const cl_image_desc *) &desc, NULL, &err);
+	// Create first pass output image / second pass input image
+	cl_mem img2 = clCreateImage(context, CL_MEM_READ_WRITE, (const cl_image_format *) &format, (const cl_image_desc *) &desc, NULL, &err);
 	if (err) { error("could not create output image buffer object for first pass of the blur\n"); }
 
 	// Create the gaussian kernel buffer memory object
@@ -194,66 +194,73 @@ void blur_gpu(struct Img_Data *img_datap, unsigned std_dev) {
 	// Write the input image into the input image object
 	size_t origin[] = {0, 0, 0};
 	size_t region[] = {img_datap->width, img_datap->height, 1};
-	err = clEnqueueWriteImage(command_queue, input_img, CL_TRUE, origin, region, 0, 0, img_datap->arrays[0], 0, NULL, NULL);
+	err = clEnqueueWriteImage(command_queue, img1, CL_TRUE, origin, region, 0, 0, img_datap->arrays[0], 0, NULL, NULL);
 	if (err != CL_SUCCESS) { error("could not write input image for first pass from host to device\n"); }
 
 	// Write the gaussian kernel into the gaussian kernel memory object
 	err = clEnqueueWriteBuffer(command_queue, gaussian_kernel_mem, CL_TRUE, 0, gaussian_kernel_len * sizeof(float), gaussian_kernel, 0, NULL, NULL);
 	if (err != CL_SUCCESS) { error("could not write gaussian kernel for first pass from host to device\n"); }
 
-	// Set the kernel arguments
-	if (clSetKernelArg(first_pass_kernel, 0, sizeof(cl_mem), &input_img) != CL_SUCCESS) { 
+	// Set the kernel arguments for the first pass
+	if (clSetKernelArg(first_pass_kernel, 0, sizeof(cl_mem), &img1) != CL_SUCCESS) { 
 		error("could not set input image OpenCL kernel argument\n"); 
-	} else if (clSetKernelArg(first_pass_kernel, 1, sizeof(cl_mem), &output_img) != CL_SUCCESS) { 
+	} else if (clSetKernelArg(first_pass_kernel, 1, sizeof(cl_mem), &img2) != CL_SUCCESS) { 
 		error("could not set output image OpenCL kernel argument\n");
 	} else if (clSetKernelArg(first_pass_kernel, 2, sizeof(cl_mem), &gaussian_kernel_mem) != CL_SUCCESS) { 
 		error("could not set gaussian filter OpenCL kernel argument\n");
+	}
+	/*
 	} else if (clSetKernelArg(first_pass_kernel, 3, sizeof(gaussian_kernel), NULL) != CL_SUCCESS) {
 		error("could not set device local gaussian filter OpenCL kernel argument\n");
 	}
-	
-	// Enqueue the kernel for execution
+	*/
+
+	/*
+	// Enqueue the first pass kernel for execution
 	size_t global_work_size_width = WORK_ITEMS_PER_GROUP * ((img_datap->width + WORK_ITEMS_PER_GROUP - 1) / WORK_ITEMS_PER_GROUP);
 	size_t global_work_size[] = {global_work_size_width, img_datap->height};
 	size_t local_work_size[] = {WORK_ITEMS_PER_GROUP, 1};
 	clEnqueueNDRangeKernel(command_queue, first_pass_kernel, 2, NULL, global_work_size, local_work_size, 0, NULL, NULL);
-	
-	// Read the processed image back to host memory
-	clEnqueueReadImage(command_queue, output_img, CL_TRUE, origin, region, 0, 0, img_datap->arrays[1], 0, NULL, NULL);
-	
+	*/
+	size_t global_work_size[] = {img_datap->width, img_datap->height};
+	clEnqueueNDRangeKernel(command_queue, first_pass_kernel, 2, NULL, global_work_size, NULL, 0, NULL, NULL); 
+
 	// Create the kernel for the second pass of the blur
 	const char second_pass_name[] = "second_pass_blur";
 	cl_kernel second_pass_kernel = clCreateKernel(program, second_pass_name, &err);
 	if (err != CL_SUCCESS) { error("could not create OpenCL kernel for the second pass of the blur\n"); }
 
-	// Write the new input image into the input image object
-	err = clEnqueueWriteImage(command_queue, input_img, CL_TRUE, origin, region, 0, 0, img_datap->arrays[1], 0, NULL, NULL);
-	if (err != CL_SUCCESS) { error("could not write input image for second pass from host to device\n"); }
-	
-	// Set the kernel arguments
-	if (clSetKernelArg(second_pass_kernel, 0, sizeof(cl_mem), &input_img) != CL_SUCCESS) { 
+	// Set the kernel arguments for the second pass
+	if (clSetKernelArg(second_pass_kernel, 0, sizeof(cl_mem), &img2) != CL_SUCCESS) { 
 		error("could not set input image OpenCL kernel argument\n"); 
-	} else if (clSetKernelArg(second_pass_kernel, 1, sizeof(cl_mem), &output_img) != CL_SUCCESS) { 
+	} else if (clSetKernelArg(second_pass_kernel, 1, sizeof(cl_mem), &img1) != CL_SUCCESS) { 
 		error("could not set output image OpenCL kernel argument\n");
 	} else if (clSetKernelArg(second_pass_kernel, 2, sizeof(cl_mem), &gaussian_kernel_mem) != CL_SUCCESS) { 
 		error("could not set gaussian filter OpenCL kernel argument\n");
+	}
+
+	/*
 	} else if (clSetKernelArg(second_pass_kernel, 3, sizeof(gaussian_kernel), NULL) != CL_SUCCESS) {
 		error("could not set device local gaussian filter OpenCL kernel argument\n");
 	}
+	*/
 
-	// Enqueue the kernel for execution
+	/*
+	// Enqueue the second pass kernel for execution
 	size_t global_work_size_height = WORK_ITEMS_PER_GROUP * ((img_datap->height + WORK_ITEMS_PER_GROUP - 1) / WORK_ITEMS_PER_GROUP);
 	size_t global_work_size2[] = {img_datap->width, global_work_size_height};
 	size_t local_work_size2[] = {1, WORK_ITEMS_PER_GROUP};
 	clEnqueueNDRangeKernel(command_queue, second_pass_kernel, 2, NULL, global_work_size2, local_work_size2, 0, NULL, NULL);
+	*/
+	clEnqueueNDRangeKernel(command_queue, second_pass_kernel, 2, NULL, global_work_size, NULL, 0, NULL, NULL);
 
 	// Read the processed image back to host memory
-	clEnqueueReadImage(command_queue, output_img, CL_TRUE, origin, region, 0, 0, img_datap->arrays[2], 0, NULL, NULL);
-			
+	clEnqueueReadImage(command_queue, img1, CL_TRUE, origin, region, 0, 0, img_datap->arrays[2], 0, NULL, NULL);
+	
 	// Release all OpenCL objects (TODO fix memory leak)
 	clReleaseMemObject(gaussian_kernel_mem);
-	clReleaseMemObject(output_img);
-	clReleaseMemObject(input_img);
+	clReleaseMemObject(img1);
+	clReleaseMemObject(img2);
 	clReleaseKernel(first_pass_kernel);
 	clReleaseKernel(second_pass_kernel);
 	clReleaseCommandQueue(command_queue);
@@ -269,6 +276,4 @@ void blur_gpu(struct Img_Data *img_datap, unsigned std_dev) {
 	// Free allocated memory
 	free(gaussian_kernel);
 	free(buf);
-
-	return;
 }

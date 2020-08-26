@@ -179,6 +179,13 @@ void blur_cpu(struct Img_Data *img_datap, unsigned std_dev, unsigned num_threads
 	duration = (finish.tv_sec - start.tv_sec);
        	duration += (finish.tv_nsec - start.tv_nsec) / 1000000000.0;
 	printf("Blur Duration: %f seconds\n\n", duration);
+	
+	/*
+	// Output the duration to the output file
+	FILE *out = fopen("std500.txt", "a");
+	fprintf(out, "%f\n", duration);	
+	fclose(out);
+	*/
 
 	// Free the gaussian kernel
 	free(gaussian_kernel);

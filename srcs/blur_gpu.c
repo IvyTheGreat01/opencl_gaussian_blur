@@ -196,20 +196,11 @@ void blur_gpu(struct Img_Data *img_datap, unsigned std_dev) {
 	// Set the origin, region and pitch used by all the read/write operations
 	size_t origin[] = {0, 0, 0};
 	size_t region[] = {img_datap->width, img_datap->height, 1};
-	// size_t row_pitch = img_datap->pixel_length * img_datap->width;
 
 	// Write the input image into img1
 	err = clEnqueueWriteImage(command_queue, img1, CL_TRUE, origin, region, 0, 0, img_datap->arrays[0], 0, NULL, NULL);
 	if (err != CL_SUCCESS) { error("could not write input image for first pass from host to device\n"); }
 	
-	/*
-	// Map the input image into img1_map and copy the input image into it
-	unsigned char *img1_map = clEnqueueMapImage(command_queue, img1, CL_TRUE, CL_MAP_WRITE_INVALIDATE_REGION, origin, region, &row_pitch, NULL, 0, NULL, NULL, &err);
-	if (err) { error("could not map input image to host\n"); }
-	memcpy(img1_map, img_datap->arrays[0], img_datap->width * img_datap->height * img_datap->pixel_length);
-	clEnqueueUnmapMemObject(command_queue, img1, img1_map, 0, NULL, NULL);
-	*/
-
 	// Write the gaussian kernel into the gaussian kernel memory object
 	err = clEnqueueWriteBuffer(command_queue, gaussian_kernel_mem, CL_TRUE, 0, gaussian_kernel_len * sizeof(float), gaussian_kernel, 0, NULL, NULL);
 	if (err != CL_SUCCESS) { error("could not write gaussian kernel for first pass from host to device\n"); }

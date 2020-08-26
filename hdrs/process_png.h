@@ -19,9 +19,7 @@
  * colour_type : colour type of the input image in png notation (must be 6 (RGBA) for this program to work)
  * bit_depth : bit depth of the input image (must be 8 for this program to work)
  * pixel_length : length of each pixel in bytes (must be 4 for this program to work)
- * arr1 : 1D array to store the input image
- * arr2 : 1D array to store the image after first blurring pass
- * arr3 : 1D array to store the image after second blurring pass
+ * arrays : pointer to two temp image arrays that are used to perform the blurs
  */
 struct Img_Data {
 	png_structp png_ptr;

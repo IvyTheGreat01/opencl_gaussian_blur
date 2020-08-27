@@ -22,7 +22,7 @@
  * filename : filename of the input image
  * std_dev : standard deviation of the gaussian blur (must be pos int)
  * device : device to run this program on (must be 'c' for cpu or 'g' for gpu)
- * threads : number of threads (only set for if device = gpu) 
+ * threads : number of threads (only set if device = gpu) 
  */
 struct Input_Pars {
 	char *filename;
@@ -38,7 +38,7 @@ struct Input_Pars {
  */
 void usage_msg(char *program_name) {
 	fprintf(stderr, "Usage: %s input.png standard_deviation device [threads]\n", program_name);
-	fprintf(stderr, "	input.png = png image to be blurred\n");
+	fprintf(stderr, "	input.png = PNG image to be blurred (must be 8 bit, RGBA)\n");
 	fprintf(stderr, "	standard_deviation = 'pos_int'\n");
 	fprintf(stderr, "	device = 'c' for running on cpu, device = 'g' for running on gpu\n");
 	fprintf(stderr, "	if device = 'c', threads = number of threads (no threads specified means 1)\n\n");

@@ -10,8 +10,7 @@ __constant sampler_t sampler = CLK_NORMALIZED_COORDS_FALSE | CLK_FILTER_NEAREST 
 / Kernel blurs all pixels in in_img and writes to out_img, this is the first pass of the blur
 / @param in_img : the original input image
 / @param out_img : the output image after the first blurring pass
-/ @param gaussian_kernel : pointer to local memory where gaussian_kernel can be allocated
-/ @param global_gaussian_kernel : pointer to gaussian_kernel that performs the blur (global memory)
+/ @param gaussian_kernel : pointer to global memory where gaussian_kernel is stored
 */
 __kernel void first_pass_blur(read_only image2d_t in_img,	
 						write_only image2d_t out_img, 
@@ -43,8 +42,7 @@ __kernel void first_pass_blur(read_only image2d_t in_img,
 / Kernel blurs all pixels in in_img and writes to out_img, this is the second pass of the blur
 / @param in_img : the intermidiate input image
 / @param out_img : the output image after the second blurring pass
-/ @param gaussian_kernel : pointer to local memory where gaussian_kernel can be allocated
-/ @param global_gaussian_kernel : pointer to gaussian_kernel that performs the blur (global memory)
+/ @param gaussian_kernel : pointer to global memory where gaussian_kernel is stored
 */
 __kernel void second_pass_blur(read_only image2d_t in_img,	
 						write_only image2d_t out_img, 

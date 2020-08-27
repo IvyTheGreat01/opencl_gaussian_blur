@@ -37,7 +37,7 @@ Number of threads defaults to 1 if no `threads` argument is passed. It is an err
 
 ```
 Usage: ./blur input.png standard_deviation device [threads]
-	input.png = png image to be blurred
+	input.png = PNG image to be blurred (must be 8 bit, RGBA)
 	standard_deviation = 'pos_int'
 	device = 'c' for running on cpu, device = 'g' for running on gpu
 	if device = 'c', threads = number of threads (no threads specified means 1)

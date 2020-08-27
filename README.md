@@ -3,7 +3,7 @@ This is a gaussian blur implementation written in *C* that can run multithreaded
 
 Showcase Video: https://youtu.be/IfH6_pQPfYQ 
 
-Bencharking Data: [here](https://docs.google.com/spreadsheets/d/e/2PACX-1vRb-oeR40DNBxupItV7g4kWo4vkKOww2DULMerxg2vj0lUWFjKT4EWCNUbjnS-LTIyDPZfXg3vYYcDA/pubhtml)
+Benchmarking Data: [here](https://docs.google.com/spreadsheets/d/e/2PACX-1vRb-oeR40DNBxupItV7g4kWo4vkKOww2DULMerxg2vj0lUWFjKT4EWCNUbjnS-LTIyDPZfXg3vYYcDA/pubhtml)
 
 All benchmarking was performed on a 4912 x 3264, 8 bit, RGBA, PNG image, with no transparent pixels.
 

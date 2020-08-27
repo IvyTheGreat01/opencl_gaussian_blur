@@ -20,7 +20,7 @@
  * gaussian_kernel : pointer to the gaussian kernel that will perform the blur
  * guassian_kernel_len : length of the gaussian_kernel in pixels
  * offset : the offset into the gaussian_kernel that the target pixel is at
- * pass : 1 = first pass of the blur, 2 = second pass of the blur
+ * pass : 0 = first pass of the blur, 1 = second pass of the blur
  */
 struct Thread_Params {
 	struct Img_Data *img_datap;
@@ -34,16 +34,12 @@ struct Thread_Params {
 
 /**
  * Calculates what the new values for each componenet of the blurred pixel should be and stores those values in the new img (FIRST PASS out of 2) 
- * @param row_pointers : pointer to an array of rows of the input image
- * @param new_row_pointers : pointer to an array of rows of the output image
+ * @param img_datap : pointer to struct that stores all image information
  * @param row : the row the target pixel is at
  * @param col : the column the target pixel is at
  * @param gaussian_kernel : the 1D convolution kernel that will apply the blur
  * @param gaussian_kernel_len : the length of the kernel
  * @param offset : the index of the target pixel in the gaussian kernel (always RADIUS * std_dev)
- * @param pixel_length : the length of a pixel in bytes
- * @param width : the width of the image in pixels
- * @param height : the height of the image in pixels
  * @param pass : 0 if its the first pass of the blur, 1 if its the second pass (illegal inputs not checked so make sure calling function gives correct pass value)
  */
 void blur_pixel(struct Img_Data *img_datap, unsigned row, unsigned col, float *gaussian_kernel, unsigned gaussian_kernel_len, unsigned offset, unsigned pass) {

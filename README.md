@@ -1,7 +1,7 @@
 # OpenCL Gaussian Blur
 This is a gaussian blur implementation written in *C* that can run multithreaded on your CPU using *pthreads* or on your GPU using *OpenCL*
 
-Showcase Video:
+Showcase Video: https://youtu.be/IfH6_pQPfYQ 
 
 Bencharking Data: [here](https://docs.google.com/spreadsheets/d/e/2PACX-1vRb-oeR40DNBxupItV7g4kWo4vkKOww2DULMerxg2vj0lUWFjKT4EWCNUbjnS-LTIyDPZfXg3vYYcDA/pubhtml)
 

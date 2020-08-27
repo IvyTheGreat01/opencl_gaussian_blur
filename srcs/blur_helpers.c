@@ -13,6 +13,7 @@
 /**
  * Calculates the values for all the elements of the 1D gaussian convolution kernel (values are normalized)
  * @param [output] gaussian_kernel : the 1D kernel to fill the values with
+ * @param gaussian_kernel_len : length of the gaussian kernel in pixels
  * @param std_dev : the standard deviation of the gaussian filter
  */
 void calculate_kernel(float **gaussian_kernel, unsigned gaussian_kernel_len, unsigned std_dev) {

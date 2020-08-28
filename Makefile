@@ -5,6 +5,8 @@
 
 CC = gcc
 CFLAGS = -Wall -Wextra -pedantic -std=c99 -g -lpng -lm -pthread
+# CFLAGS = -Wall -Wextra -pedantic -std=c99 -g -lpng -lm -pthread -O3 -mavx -march=native -ffast-math 
+# Top CFLAGS is regular compilation, bottom CFLAGS is vectorized compilation with avx (which decreases CPU blur duration by 3-4 times)
 OBJDIR = objs
 SRCDIR = srcs
 HDRDIR = hdrs

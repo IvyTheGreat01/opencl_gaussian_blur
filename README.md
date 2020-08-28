@@ -21,7 +21,9 @@ If everything is working correctly you should notice that for any given input, r
 (even under full multithreaded load). And this ratio should increase as the size of the input image and standard deviation increase.
 
 ## Usage
-After cloning or downloading the source code, compile with `make`.
+After cloning or downloading the source code, compile with `make`. You can switch which CFLAGS line is commented in Makefile, to compile with avx vectorization.
+Compiling with avx doesn't affect the GPU blur duration, but it decreases the CPU blur duration by around 3 to 4 times.
+
 If your input image is `.../input.png` the program will output a blurred `.../input_gb.png` without modifying `.../input.png` at all.
 
 `input.png` is the first argument to the program and should be a file path to the (8 bit, RGBA) PNG file you want blurred. 
